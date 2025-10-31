@@ -22,6 +22,7 @@ from mirrorsrun.config import (
     EXTERNAL_URL_ARIA2,
     EXTERNAL_HOST_ARIA2,
     SCHEME, SSL_SELF_SIGNED,
+    SERVER_PORT,
 )
 
 from mirrorsrun.sites.npm import npm
@@ -107,18 +108,18 @@ async def capture_request(request: Request, call_next: Callable):
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    port = 80
-    logger.info(f"Server started at {SCHEME}://*.{BASE_DOMAIN})")
+    port = SERVER_PORT
+    logger.info(f"Server started at {SCHEME}://*.{BASE_DOMAIN}:{port}")
 
     for dn in subdomain_mapping.keys():
-        logger.info(f" - {SCHEME}://{dn}.{BASE_DOMAIN}")
+        logger.info(f" - {SCHEME}://{dn}.{BASE_DOMAIN}:{port}")
 
     aria2_secret = base64.b64encode(RPC_SECRET.encode()).decode()
 
     params = {
         "protocol": SCHEME,
         "host": EXTERNAL_HOST_ARIA2,
-        "port": "443" if SCHEME == "https" else "80",
+        "port": str(SERVER_PORT),
         "interface": "jsonrpc",
         "secret": aria2_secret,
     }
@@ -133,7 +134,7 @@ if __name__ == "__main__":
         host="0.0.0.0",
         ssl_keyfile='/app/certs/private.key' if SSL_SELF_SIGNED else None,
         ssl_certfile='/app/certs/certificate.pem' if SSL_SELF_SIGNED else None,
-        port=443 if SSL_SELF_SIGNED else 80,
+        port=SERVER_PORT,
         reload=True,  # TODO: reload only in dev mode
         proxy_headers=not SSL_SELF_SIGNED,  # trust x-forwarded-for etc.
         forwarded_allow_ips="*",

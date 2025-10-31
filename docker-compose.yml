@@ -9,7 +9,8 @@ services:
     env_file:
       - .env
     environment:
-      - SSL_SELF_SIGNED=true
+      - SSL_SELF_SIGNED=false
+      - SERVER_PORT=8080
     networks:
       - app
     restart: unless-stopped
@@ -17,8 +18,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "80:80"
-      - "443:443"
+      - "127.0.0.1:8080:8080"
   aria2:
     image: lightmirrors/aria2
     build: ./aria2

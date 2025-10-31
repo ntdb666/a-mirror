@@ -12,6 +12,9 @@ CACHE_DIR = os.environ.get("CACHE_DIR", "/app/cache/")
 EXTERNAL_HOST_ARIA2 = f"aria2.{BASE_DOMAIN}"
 EXTERNAL_URL_ARIA2 = f"{SCHEME}://{EXTERNAL_HOST_ARIA2}/aria2/index.html"
 
+# Server port configuration (default 80, can be overridden via SERVER_PORT env var)
+SERVER_PORT = int(os.environ.get("SERVER_PORT", "80"))
+
 BASE_URL_PYTORCH = os.environ.get("BASE_URL_PYTORCH", "https://download.pytorch.org")
 BASE_URL_DOCKERHUB = os.environ.get(
     "BASE_URL_DOCKERHUB", "https://registry-1.docker.io"
