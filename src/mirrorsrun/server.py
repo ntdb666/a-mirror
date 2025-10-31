@@ -33,7 +33,7 @@ from mirrorsrun.sites.goproxy import goproxy
 
 subdomain_mapping = {
     "mirrors": common,
-    "pypi": pypi,
+    "pip": pypi,
     "torch": torch,
     "npm": npm,
     "docker": dockerhub,
