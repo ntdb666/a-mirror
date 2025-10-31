@@ -95,8 +95,9 @@ async def try_file_based_cache(
         # 记录缓存命中指标
         total_time = time.time() - start_time
         file_size = os.path.getsize(cache_file)
-        client_receive_speed = file_size / total_time if total_time > 0 else 0
         
+        # 注意：缓存命中时，total_time 只是服务器读取文件的时间，
+        # 不包括网络传输时间，所以不记录 client_receive_speed
         metrics_recorder.record_metric(
             url=target_url,
             package_name=package_name,
@@ -104,7 +105,6 @@ async def try_file_based_cache(
             cache_hit=True,
             total_time=total_time,
             status="success",
-            client_receive_speed=client_receive_speed,
         )
         
         return response

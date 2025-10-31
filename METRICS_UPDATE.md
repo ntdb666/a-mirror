@@ -19,8 +19,10 @@
 
 ### 3. 速度监控
 - **Aria2 下载速度**：从上游源下载的速度（bytes/s）
-- **客户端接收速度**：客户端从镜像接收的速度（bytes/s）
+- **客户端有效吞吐量**：从请求到完成的有效速度（仅初次下载，bytes/s）
 - 定期（每 5 秒）获取 Aria2 下载状态
+
+**注意**：缓存命中时不记录客户端速度，因为本地读取速度（通常 > 500MB/s）无参考意义
 
 ### 4. 缓存策略跟踪
 - 记录每次请求是否命中缓存
@@ -60,10 +62,14 @@ docker-compose logs -f lightmirrors
 
 日志示例：
 ```
-[METRICS] Cache HIT | requests-2.28.0.whl | Total: 0.05s | Size: 62.83KB
+[METRICS] Cache HIT | requests-2.28.0.whl | Total: 0.003s | Size: 0.06MB
 [METRICS] Cache MISS | numpy-1.24.0.whl | Aria2: 10.2s @ 1.16MB/s | Total: 12.5s | Size: 14.53MB
 [METRICS] Aria2 download completed: numpy-1.24.0.whl
 ```
+
+**说明**：
+- 缓存命中的 Total 时间通常在毫秒级（< 10ms），反映本地文件读取速度
+- **单位统一**：文件大小统一为 **MB**，下载速度统一为 **MB/s**
 
 ## 数据分析示例
 
@@ -82,9 +88,9 @@ print(f"缓存命中率: {cache_hit_rate:.2f}%")
 
 ### 查看平均下载速度
 ```python
-# 过滤出初次下载的记录
-downloads = df[df['aria2_download_speed'].notna()]
-avg_speed_mbps = downloads['aria2_download_speed'].mean() / (1024*1024)
+# 过滤出初次下载的记录（已经是 MB/s）
+downloads = df[df['aria2_download_speed_mbs'].notna()]
+avg_speed_mbps = downloads['aria2_download_speed_mbs'].mean()
 print(f"平均 Aria2 下载速度: {avg_speed_mbps:.2f} MB/s")
 ```
 
@@ -113,10 +119,14 @@ DATA_DIR=/app/data/
 |------|------|------|
 | cache_hit | 是否缓存命中 | boolean |
 | total_time | 从请求到完成的总时间 | 秒 |
-| aria2_download_speed | Aria2 从上游下载的速度 | bytes/s |
-| aria2_download_time | Aria2 下载耗时 | 秒 |
-| client_receive_speed | 客户端接收速度 | bytes/s |
-| file_size | 文件大小 | 字节 |
+| aria2_download_speed_mbs | Aria2 从上游下载的速度（仅初次下载） | MB/s |
+| aria2_download_time | Aria2 下载耗时（仅初次下载） | 秒 |
+| client_receive_speed_mbs | 客户端有效吞吐量（仅初次下载，包含等待时间） | MB/s |
+| file_size_mb | 文件大小 | MB |
+
+**注意**：
+- 缓存命中时不包含 `client_receive_speed_mbs` 字段
+- **单位统一**：JSON 和日志中都使用 MB 和 MB/s 作为单位
 
 ## 注意事项
 

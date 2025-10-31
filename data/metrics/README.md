@@ -13,22 +13,28 @@
 - **timestamp**: 请求时间戳（UTC）
 - **url**: 请求的完整 URL
 - **package_name**: 包名（从 URL 提取）
-- **file_size**: 文件大小（字节）
+- **file_size_mb**: 文件大小（**MB**）
 - **cache_hit**: 是否缓存命中（true/false）
 - **total_time**: 总耗时（秒，从请求到响应完成）
 - **status**: 状态（success/timeout/error）
-- **aria2_download_speed**: Aria2 平均下载速度（bytes/s，仅初次下载）
+- **aria2_download_speed_mbs**: Aria2 从上游源下载的速度（**MB/s**，仅初次下载）
 - **aria2_download_time**: Aria2 下载耗时（秒，仅初次下载）
-- **client_receive_speed**: 客户端接收速度（bytes/s）
+- **client_receive_speed_mbs**: 客户端有效吞吐量（**MB/s**，仅初次下载，包含等待时间）
 - **status_message**: 状态说明（可选）
+
+**注意：** 
+- 缓存命中时不记录 `client_receive_speed_mbs`，因为读取本地缓存的速度不具有参考意义
+- 初次下载时，`client_receive_speed_mbs` = 文件大小 / 总耗时，反映从客户端角度的有效下载速度
+- **单位统一**：文件大小使用 **MB**，速度使用 **MB/s**
 
 ## 数据记录场景
 
 ### 1. 缓存命中
 当请求的文件已在缓存中时：
 - `cache_hit = true`
-- 记录从请求到完成的总时间
-- 记录文件大小和客户端接收速度
+- 记录从请求到响应生成的时间（通常为毫秒级）
+- 记录文件大小
+- 不记录 `client_receive_speed`（本地读取速度无参考价值）
 
 ### 2. 初次下载（缓存未命中）
 当需要从上游源下载文件时：
@@ -48,17 +54,41 @@
 - `status = "error"`
 - 记录错误信息
 
-## 控制台日志示例
+## 数据输出格式示例
+
+### JSON 数据格式（data/metrics/metrics.json）
+
+```json
+{
+  "timestamp": "2025-10-31T10:30:45.123Z",
+  "url": "https://files.pythonhosted.org/packages/.../numpy-1.24.0.whl",
+  "package_name": "numpy-1.24.0.whl",
+  "file_size_mb": 14.53,
+  "cache_hit": false,
+  "total_time": 12.5,
+  "aria2_download_speed_mbs": 1.16,
+  "aria2_download_time": 10.2,
+  "client_receive_speed_mbs": 1.16,
+  "status": "success"
+}
+```
+
+### 控制台日志格式
 
 ```
-[METRICS] Cache HIT | requests-2.28.0.whl | Total: 0.05s | Size: 62.83KB
+[METRICS] Cache HIT | requests-2.28.0.whl | Total: 0.003s | Size: 0.06MB
 [METRICS] Cache MISS | numpy-1.24.0.whl | Aria2: 10.2s @ 1.16MB/s | Total: 12.5s | Size: 14.53MB
 [METRICS] Aria2 download completed: numpy-1.24.0.whl
 ```
 
+**说明：**
+- **Cache HIT**: 缓存命中，Total 是服务器读取缓存文件的时间（通常 < 10ms）
+- **Cache MISS**: 缓存未命中，Aria2 显示上游下载速度和时间，Total 是客户端等待的总时间
+- **单位统一**: JSON 和日志中，文件大小统一使用 **MB**，下载速度统一使用 **MB/s**
+
 ## 使用建议
 
-1. **下载速度分析**：查看 `aria2_download_speed` 字段，评估上游源下载速度
+1. **下载速度分析**：查看 `aria2_download_speed_mbs` 字段，评估上游源下载速度
 2. **缓存效率分析**：统计 `cache_hit = true` 的比例，评估缓存命中率
 3. **性能分析**：对比缓存命中和未命中的 `total_time`，评估镜像加速效果
 4. **问题诊断**：查看 `status = "timeout"` 或 `"error"` 的记录，找出问题包
@@ -85,8 +115,8 @@ df = pd.DataFrame(data)
 cache_hit_rate = df['cache_hit'].sum() / len(df) * 100
 print(f"缓存命中率: {cache_hit_rate:.2f}%")
 
-# 平均下载速度（MB/s）
-avg_speed = df[df['aria2_download_speed'].notna()]['aria2_download_speed'].mean() / (1024*1024)
+# 平均下载速度（已经是 MB/s）
+avg_speed = df[df['aria2_download_speed_mbs'].notna()]['aria2_download_speed_mbs'].mean()
 print(f"平均下载速度: {avg_speed:.2f} MB/s")
 
 # 缓存命中 vs 未命中的平均响应时间

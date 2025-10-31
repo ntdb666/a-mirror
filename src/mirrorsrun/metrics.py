@@ -60,23 +60,28 @@ class MetricsRecorder:
         """
         timestamp = datetime.utcnow().isoformat() + 'Z'
         
+        # 转换为 MB 和 MB/s 单位
+        file_size_mb = file_size / (1024 * 1024)
+        
         metric_data = {
             "timestamp": timestamp,
             "url": url,
             "package_name": package_name,
-            "file_size": file_size,
+            "file_size_mb": round(file_size_mb, 2),
             "cache_hit": cache_hit,
             "total_time": round(total_time, 3),
             "status": status,
         }
         
-        # 添加可选字段
+        # 添加可选字段（转换为 MB/s）
         if aria2_download_speed is not None:
-            metric_data["aria2_download_speed"] = round(aria2_download_speed, 2)
+            aria2_speed_mbs = aria2_download_speed / (1024 * 1024)
+            metric_data["aria2_download_speed_mbs"] = round(aria2_speed_mbs, 2)
         if aria2_download_time is not None:
             metric_data["aria2_download_time"] = round(aria2_download_time, 3)
         if client_receive_speed is not None:
-            metric_data["client_receive_speed"] = round(client_receive_speed, 2)
+            client_speed_mbs = client_receive_speed / (1024 * 1024)
+            metric_data["client_receive_speed_mbs"] = round(client_speed_mbs, 2)
         if status_message:
             metric_data["status_message"] = status_message
         
@@ -111,37 +116,30 @@ class MetricsRecorder:
     def _log_metric(self, metric_data: dict):
         """输出格式化的控制台日志"""
         package_name = metric_data["package_name"]
-        file_size_mb = metric_data["file_size"] / (1024 * 1024)
+        file_size_mb = metric_data["file_size_mb"]
         total_time = metric_data["total_time"]
         cache_hit = metric_data["cache_hit"]
         status = metric_data["status"]
         
+        # 统一使用 MB 作为单位
+        size_str = f"{file_size_mb:.2f}MB"
+        
         if cache_hit:
             # 缓存命中
-            if file_size_mb >= 1:
-                size_str = f"{file_size_mb:.2f}MB"
-            else:
-                size_str = f"{metric_data['file_size'] / 1024:.2f}KB"
-            
             logger.info(
                 f"[METRICS] Cache HIT | {package_name} | "
-                f"Total: {total_time:.2f}s | Size: {size_str}"
+                f"Total: {total_time:.3f}s | Size: {size_str}"
             )
         else:
             # 缓存未命中
-            aria2_speed = metric_data.get("aria2_download_speed")
+            aria2_speed_mbs = metric_data.get("aria2_download_speed_mbs")
             aria2_time = metric_data.get("aria2_download_time")
             
-            if file_size_mb >= 1:
-                size_str = f"{file_size_mb:.2f}MB"
-            else:
-                size_str = f"{metric_data['file_size'] / 1024:.2f}KB"
-            
-            if aria2_speed and aria2_time:
-                speed_mb = aria2_speed / (1024 * 1024)
+            if aria2_speed_mbs and aria2_time:
+                # 统一使用 MB/s 作为速度单位
                 log_msg = (
                     f"[METRICS] Cache MISS | {package_name} | "
-                    f"Aria2: {aria2_time:.2f}s @ {speed_mb:.2f}MB/s | "
+                    f"Aria2: {aria2_time:.2f}s @ {aria2_speed_mbs:.2f}MB/s | "
                     f"Total: {total_time:.2f}s | Size: {size_str}"
                 )
             else:
