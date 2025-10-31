@@ -8,6 +8,7 @@ import signal
 import urllib.parse
 from typing import Callable
 import logging
+import ipaddress
 
 import httpx
 import uvicorn
@@ -86,12 +87,59 @@ async def aria2(request: Request, call_next):
     return await call_next(request)
 
 
+def is_ip_address(hostname: str) -> bool:
+    """Check if hostname is an IP address"""
+    try:
+        ipaddress.ip_address(hostname)
+        return True
+    except ValueError:
+        return False
+
+
 @app.middleware("http")
 async def capture_request(request: Request, call_next: Callable):
     hostname = request.url.hostname
     if not hostname:
         return Response(content="Bad Request", status_code=400)
 
+    path = request.url.path
+
+    # Support IP address access via path prefix (e.g., /pip/, /npm/)
+    if is_ip_address(hostname):
+        # Check for aria2 access
+        if path.startswith("/aria2/"):
+            return await aria2(request, call_next)
+        
+        # Check for service path prefixes
+        for service_name, handler in subdomain_mapping.items():
+            prefix = f"/{service_name}/"
+            if path.startswith(prefix):
+                # Create a new request with the service prefix removed from path
+                # This allows handlers to work correctly (e.g., /pip/simple/ -> /simple/)
+                new_path = path[len(prefix) - 1:]  # Keep the leading /
+                if not new_path.startswith("/"):
+                    new_path = "/" + new_path
+                
+                # Create modified request with new path
+                scope = dict(request.scope)
+                scope["path"] = new_path
+                scope["raw_path"] = new_path.encode()
+                modified_request = Request(scope, request.receive)
+                
+                return await handler(modified_request)
+        
+        # Default: show available services
+        if path == "/" or path == "":
+            services_list = "\n".join([f"  /{name}/" for name in subdomain_mapping.keys()])
+            return Response(
+                content=f"LightMirrors 镜像服务\n\n可用服务:\n{services_list}\n\n示例:\n  /pip/simple/  - PyPI 镜像\n  /npm/  - NPM 镜像\n  /docker/  - Docker 镜像\n  /aria2/  - Aria2 管理界面",
+                status_code=200,
+                media_type="text/plain; charset=utf-8"
+            )
+        
+        return await call_next(request)
+
+    # Original domain-based routing
     if not hostname.endswith(f".{BASE_DOMAIN}"):
         return await call_next(request)
 
