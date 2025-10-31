@@ -106,9 +106,18 @@ async def capture_request(request: Request, call_next: Callable):
 
     # Support IP address access via path prefix (e.g., /pip/, /npm/)
     if is_ip_address(hostname):
-        # Check for aria2 access
+        # Aria2 access: let FastAPI's static file mount handle /aria2/ paths
         if path.startswith("/aria2/"):
-            return await aria2(request, call_next)
+            # For /aria2/jsonrpc, we need special handling
+            if path == "/aria2/jsonrpc":
+                # Create modified request to proxy to aria2 RPC
+                scope = dict(request.scope)
+                scope["path"] = "/jsonrpc"
+                scope["raw_path"] = b"/jsonrpc"
+                modified_request = Request(scope, request.receive)
+                return await aria2(modified_request, call_next)
+            # For other /aria2/ paths, let call_next handle (FastAPI static files)
+            return await call_next(request)
         
         # Check for service path prefixes
         for service_name, handler in subdomain_mapping.items():
