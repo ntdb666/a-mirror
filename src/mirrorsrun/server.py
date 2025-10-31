@@ -116,9 +116,17 @@ async def capture_request(request: Request, call_next: Callable):
                 scope["raw_path"] = b"/jsonrpc"
                 modified_request = Request(scope, request.receive)
                 return await aria2(modified_request, call_next)
+            # Handle root path /aria2/ - should return index.html
+            if path == "/aria2/" or path == "/aria2":
+                # Return index.html for frontend routing
+                scope = dict(request.scope)
+                scope["path"] = "/aria2/index.html"
+                scope["raw_path"] = b"/aria2/index.html"
+                modified_request = Request(scope, request.receive)
+                return await call_next(modified_request)
             # Handle paths with hash fragments (frontend routing)
             # For example: /aria2/#!/settings/rpc/set should return index.html
-            if "/#" in path or path.endswith("/aria2/") or path == "/aria2":
+            if "/#" in path:
                 # Return index.html for frontend routing
                 scope = dict(request.scope)
                 scope["path"] = "/aria2/index.html"
