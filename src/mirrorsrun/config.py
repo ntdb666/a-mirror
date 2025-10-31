@@ -9,6 +9,9 @@ SCHEME = "https"
 SSL_SELF_SIGNED = os.environ.get("SSL_SELF_SIGNED", "true") == "true"
 
 CACHE_DIR = os.environ.get("CACHE_DIR", "/app/cache/")
+DATA_DIR = os.environ.get("DATA_DIR", "/app/data/")
+METRICS_FILE = os.path.join(DATA_DIR, "metrics.json")
+
 EXTERNAL_HOST_ARIA2 = f"aria2.{BASE_DOMAIN}"
 EXTERNAL_URL_ARIA2 = f"{SCHEME}://{EXTERNAL_HOST_ARIA2}/aria2/index.html"
 

@@ -15,6 +15,9 @@ ADD . /app
 
 WORKDIR /app
 
+# 创建 data 目录用于存放量化数据
+RUN mkdir -p /app/data
+
 EXPOSE 8080
 
 CMD ["python", "mirrorsrun/server.py"]

@@ -1,6 +1,12 @@
 
 data/*
+!data/cache/
+data/cache/*
 !data/cache/.gitkeep
+!data/metrics/
+data/metrics/*
+!data/metrics/.gitkeep
+!data/metrics/README.md
 caddy/caddy_data
 .idea
 .env
