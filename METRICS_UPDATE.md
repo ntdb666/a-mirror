@@ -4,6 +4,8 @@
 
 为 LightMirrors 添加了完整的量化数据记录功能，用于可视化分析镜像效果。
 
+**最新更新**：添加了安装会话汇总功能，自动识别同一次安装的所有包并输出汇总日志！
+
 ## 新增功能
 
 ### 1. 量化数据记录
@@ -29,16 +31,35 @@
 - 可统计缓存命中率和加速效果
 - 注：当前项目未设置包生命周期，缓存会一直保留
 
+### 5. 安装会话汇总（🆕 新增）
+- 自动识别同一次 `pip install` 的所有包
+- 在安装完成后输出汇总日志（5秒无新请求后触发）
+- 显示总时间、包数、总大小、缓存命中率等关键指标
+- 用户可直观看到整个安装过程的效果
+
+**示例汇总日志：**
+```
+[INSTALL-SUMMARY] pandas 安装完成 | 总时间: 15.5s | 包数: 3 | 总大小: 25.5MB | 下载: 25.0MB | 缓存命中: 1/3 (33.3%) | 平均速度: 1.29MB/s
+  └─ pandas-2.0.0.whl (10.0MB, 下载, 8.5s)
+  └─ numpy-1.24.0.whl (15.0MB, 下载, 12.2s)
+  └─ pytz-2023.3.whl (0.5MB, 缓存, 0.01s)
+```
+
+详细说明请查看：[安装会话汇总功能文档](docs/INSTALL_SESSION_SUMMARY.md)
+
 ## 文件修改清单
 
 ### 新增文件
 - `src/mirrorsrun/metrics.py` - 量化数据记录模块
+- `src/mirrorsrun/session_manager.py` - 会话管理器（🆕）
 - `data/metrics/.gitkeep` - 数据目录占位符
 - `data/metrics/README.md` - 数据说明文档
+- `docs/INSTALL_SESSION_SUMMARY.md` - 安装会话汇总功能文档（🆕）
 
 ### 修改文件
-- `src/mirrorsrun/config.py` - 添加 DATA_DIR 和 METRICS_FILE 配置
-- `src/mirrorsrun/proxy/file_cache.py` - 添加完整的指标追踪逻辑
+- `src/mirrorsrun/config.py` - 添加 DATA_DIR、METRICS_FILE 和会话管理配置（🆕）
+- `src/mirrorsrun/proxy/file_cache.py` - 添加完整的指标追踪和会话记录逻辑（🆕）
+- `src/mirrorsrun/server.py` - 添加会话清理后台任务（🆕）
 - `src/Dockerfile` - 创建 /app/data 目录
 - `docker-compose.yml` - 挂载 data/metrics 目录
 - `docker-compose-caddy.yml` - 挂载 data/metrics 目录

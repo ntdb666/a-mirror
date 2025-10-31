@@ -58,6 +58,10 @@
 
 ### JSON 数据格式（data/metrics/metrics.json）
 
+JSON 文件包含两种类型的记录：
+
+#### 1. 单包记录（type 字段不存在或为空）
+
 ```json
 {
   "timestamp": "2025-10-31T10:30:45.123Z",
@@ -73,7 +77,35 @@
 }
 ```
 
+#### 2. 安装会话汇总记录（type = "install_session"）
+
+```json
+{
+  "type": "install_session",
+  "session_id": "pip-1234567890",
+  "timestamp_start": "2025-10-31T11:30:00.123Z",
+  "timestamp_end": "2025-10-31T11:30:15.623Z",
+  "total_time": 15.5,
+  "main_package": "pandas",
+  "package_count": 3,
+  "total_size_mb": 25.5,
+  "downloaded_size_mb": 25.0,
+  "cache_hit_count": 1,
+  "cache_hit_rate": 0.333,
+  "avg_download_speed_mbs": 1.29,
+  "packages": [
+    {"name": "pandas-2.0.0.whl", "size_mb": 10.0, "cache_hit": false, "time": 8.5},
+    {"name": "numpy-1.24.0.whl", "size_mb": 15.0, "cache_hit": false, "time": 12.2},
+    {"name": "pytz-2023.3.whl", "size_mb": 0.5, "cache_hit": true, "time": 0.01}
+  ],
+  "user_agent": "pip/23.0.1",
+  "client_ip": "192.168.1.100"
+}
+```
+
 ### 控制台日志格式
+
+#### 单包日志
 
 ```
 [METRICS] Cache HIT | requests-2.28.0.whl | Total: 0.003s | Size: 0.06MB
@@ -81,9 +113,27 @@
 [METRICS] Aria2 download completed: numpy-1.24.0.whl
 ```
 
+#### 安装汇总日志（新增）
+
+在同一次安装的所有包下载完成后（5秒无新请求），自动输出汇总：
+
+```
+[INSTALL-SUMMARY] pandas 安装完成 | 总时间: 15.5s | 包数: 3 | 总大小: 25.5MB | 下载: 25.0MB | 缓存命中: 1/3 (33.3%) | 平均速度: 1.29MB/s
+  └─ pandas-2.0.0.whl (10.0MB, 下载, 8.5s)
+  └─ numpy-1.24.0.whl (15.0MB, 下载, 12.2s)
+  └─ pytz-2023.3.whl (0.5MB, 缓存, 0.01s)
+```
+
 **说明：**
 - **Cache HIT**: 缓存命中，Total 是服务器读取缓存文件的时间（通常 < 10ms）
 - **Cache MISS**: 缓存未命中，Aria2 显示上游下载速度和时间，Total 是客户端等待的总时间
+- **INSTALL-SUMMARY**: 安装会话汇总，显示整个安装过程的总体情况
+  - **总时间**：从第一个包请求到最后一个包完成的时间
+  - **包数**：本次安装涉及的包总数
+  - **总大小**：所有包的总大小
+  - **下载**：实际从上游下载的大小（不含缓存命中的）
+  - **缓存命中**：命中数/总数 (命中率%)
+  - **平均速度**：总下载大小 / 总下载时间
 - **单位统一**: JSON 和日志中，文件大小统一使用 **MB**，下载速度统一使用 **MB/s**
 
 ## 使用建议

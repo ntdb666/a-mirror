@@ -13,8 +13,9 @@ from starlette.responses import Response
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR, HTTP_504_GATEWAY_TIMEOUT
 
 from mirrorsrun.aria2_api import add_download, get_status
-from mirrorsrun.config import CACHE_DIR, EXTERNAL_URL_ARIA2, METRICS_FILE
+from mirrorsrun.config import CACHE_DIR, EXTERNAL_URL_ARIA2, METRICS_FILE, ENABLE_SESSION_SUMMARY
 from mirrorsrun.metrics import MetricsRecorder
+from mirrorsrun.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,42 @@ async def get_url_content_length(url):
         return content_len
 
 
+async def record_to_session(
+    request: Request,
+    package_name: str,
+    file_size: int,
+    cache_hit: bool,
+    download_time: float,
+    start_time: float,
+    end_time: float
+):
+    """记录包信息到会话"""
+    if not ENABLE_SESSION_SUMMARY:
+        return
+    
+    try:
+        # 提取客户端信息
+        user_agent = request.headers.get("user-agent", "unknown")
+        client_ip = request.client.host if request.client else "unknown"
+        
+        # 转换为 MB
+        size_mb = file_size / (1024 * 1024)
+        
+        # 记录到会话管理器
+        await session_manager.record_package(
+            user_agent=user_agent,
+            client_ip=client_ip,
+            package_name=package_name,
+            size_mb=size_mb,
+            cache_hit=cache_hit,
+            download_time=download_time,
+            start_time=start_time,
+            end_time=end_time
+        )
+    except Exception as e:
+        logger.error(f"Failed to record to session: {e}")
+
+
 async def try_file_based_cache(
     request: Request,
     target_url: str,
@@ -93,7 +130,8 @@ async def try_file_based_cache(
         response = make_cached_response(target_url)
         
         # 记录缓存命中指标
-        total_time = time.time() - start_time
+        end_time = time.time()
+        total_time = end_time - start_time
         file_size = os.path.getsize(cache_file)
         
         # 注意：缓存命中时，total_time 只是服务器读取文件的时间，
@@ -105,6 +143,17 @@ async def try_file_based_cache(
             cache_hit=True,
             total_time=total_time,
             status="success",
+        )
+        
+        # 记录到会话
+        await record_to_session(
+            request=request,
+            package_name=package_name,
+            file_size=file_size,
+            cache_hit=True,
+            download_time=total_time,
+            start_time=start_time,
+            end_time=end_time
         )
         
         return response
@@ -169,7 +218,8 @@ async def try_file_based_cache(
         # 检查下载是否完成
         if cache_status == DownloadingStatus.DOWNLOADED:
             aria2_download_time = time.time() - aria2_download_start
-            total_time = time.time() - start_time
+            end_time = time.time()
+            total_time = end_time - start_time
             file_size = os.path.getsize(cache_file)
             
             # 计算平均下载速度
@@ -189,6 +239,17 @@ async def try_file_based_cache(
                 aria2_download_speed=aria2_avg_speed,
                 aria2_download_time=aria2_download_time,
                 client_receive_speed=client_receive_speed,
+            )
+            
+            # 记录到会话
+            await record_to_session(
+                request=request,
+                package_name=package_name,
+                file_size=file_size,
+                cache_hit=False,
+                download_time=total_time,
+                start_time=start_time,
+                end_time=end_time
             )
             
             logger.info(f"Cache ready for {target_url}")

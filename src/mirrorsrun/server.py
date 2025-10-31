@@ -24,6 +24,8 @@ from mirrorsrun.config import (
     EXTERNAL_HOST_ARIA2,
     SCHEME, SSL_SELF_SIGNED,
     SERVER_PORT,
+    SESSION_TIMEOUT,
+    ENABLE_SESSION_SUMMARY,
 )
 
 from mirrorsrun.sites.npm import npm
@@ -59,6 +61,30 @@ app.mount(
     StaticFiles(directory="/wwwroot/"),
     name="static",
 )
+
+
+# 启动时的初始化
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时的初始化"""
+    if ENABLE_SESSION_SUMMARY:
+        from mirrorsrun.session_manager import session_manager
+        from mirrorsrun.proxy.file_cache import metrics_recorder
+        
+        await session_manager.start_cleanup_task(
+            timeout=SESSION_TIMEOUT,
+            metrics_recorder=metrics_recorder
+        )
+        logger.info("Session summary feature enabled")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """应用关闭时的清理"""
+    if ENABLE_SESSION_SUMMARY:
+        from mirrorsrun.session_manager import session_manager
+        session_manager.stop_cleanup_task()
+        logger.info("Session cleanup task stopped")
 
 
 async def aria2(request: Request, call_next):

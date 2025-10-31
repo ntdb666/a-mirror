@@ -12,6 +12,10 @@ CACHE_DIR = os.environ.get("CACHE_DIR", "/app/cache/")
 DATA_DIR = os.environ.get("DATA_DIR", "/app/data/")
 METRICS_FILE = os.path.join(DATA_DIR, "metrics.json")
 
+# 会话管理配置
+SESSION_TIMEOUT = int(os.environ.get("SESSION_TIMEOUT", "5"))  # 秒
+ENABLE_SESSION_SUMMARY = os.environ.get("ENABLE_SESSION_SUMMARY", "true") == "true"
+
 EXTERNAL_HOST_ARIA2 = f"aria2.{BASE_DOMAIN}"
 EXTERNAL_URL_ARIA2 = f"{SCHEME}://{EXTERNAL_HOST_ARIA2}/aria2/index.html"
 
