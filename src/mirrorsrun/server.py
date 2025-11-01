@@ -26,6 +26,8 @@ from mirrorsrun.config import (
     SERVER_PORT,
     SESSION_TIMEOUT,
     ENABLE_SESSION_SUMMARY,
+    CACHE_DIR,
+    ENABLE_CACHE_CLEANUP,
 )
 
 from mirrorsrun.sites.npm import npm
@@ -67,6 +69,23 @@ app.mount(
 @app.on_event("startup")
 async def startup_event():
     """应用启动时的初始化"""
+    # 初始化缓存追踪器（扫描现有缓存文件）
+    try:
+        from mirrorsrun.cache_tracker import get_cache_tracker
+        cache_tracker = get_cache_tracker()
+        cache_tracker.initialize_from_filesystem(CACHE_DIR)
+    except Exception as e:
+        logger.error(f"Failed to initialize cache tracker: {e}")
+    
+    # 启动缓存清理调度器
+    if ENABLE_CACHE_CLEANUP:
+        try:
+            from mirrorsrun.cache_cleanup_task import start_cleanup_scheduler
+            await start_cleanup_scheduler()
+        except Exception as e:
+            logger.error(f"Failed to start cache cleanup scheduler: {e}")
+    
+    # 启动会话管理
     if ENABLE_SESSION_SUMMARY:
         from mirrorsrun.session_manager import session_manager
         from mirrorsrun.proxy.file_cache import metrics_recorder
@@ -81,6 +100,16 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭时的清理"""
+    # 停止缓存清理调度器
+    if ENABLE_CACHE_CLEANUP:
+        try:
+            from mirrorsrun.cache_cleanup_task import get_scheduler
+            scheduler = get_scheduler()
+            scheduler.stop()
+        except Exception as e:
+            logger.error(f"Failed to stop cache cleanup scheduler: {e}")
+    
+    # 停止会话管理
     if ENABLE_SESSION_SUMMARY:
         from mirrorsrun.session_manager import session_manager
         session_manager.stop_cleanup_task()

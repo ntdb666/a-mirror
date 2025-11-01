@@ -12,6 +12,12 @@ services:
     environment:
       - SSL_SELF_SIGNED=false
       - SERVER_PORT=8080
+      # 缓存生命周期管理配置
+      - CACHE_EXPIRY_DAYS=30              # 缓存过期天数（默认30天）
+      - ENABLE_CACHE_CLEANUP=true         # 是否启用自动清理（默认true）
+      # 会话管理配置
+      - SESSION_TIMEOUT=5                 # 会话超时时间（秒，默认5秒）
+      - ENABLE_SESSION_SUMMARY=true       # 是否启用会话汇总（默认true）
     networks:
       - app
     restart: unless-stopped

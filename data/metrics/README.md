@@ -4,9 +4,70 @@
 
 此目录存放 LightMirrors 镜像服务的量化指标数据，用于分析镜像效果和性能。
 
-## 数据文件
+## 数据文件组织
 
-### metrics.json
+从 **v2.0** 开始，量化数据按天分割存储：
+
+```
+data/metrics/
+├── metrics-2025-11-01.json  # 2025年11月1日的数据
+├── metrics-2025-11-02.json  # 2025年11月2日的数据
+├── metrics-2025-11-03.json  # 2025年11月3日的数据
+└── ...
+```
+
+**文件命名格式**: `metrics-YYYY-MM-DD.json`
+
+### 跨天会话处理
+
+如果一个安装会话跨越午夜（例如 23:58 开始，00:02 结束），整个会话（包括所有包和会话汇总）会被记录到**会话开始时的日期文件**中。
+
+**示例**：
+- 会话开始：2025-11-01 23:58
+- 会话结束：2025-11-02 00:02
+- 记录位置：`metrics-2025-11-01.json`
+
+### 查看历史数据
+
+**查看特定日期**：
+```bash
+# 查看2025年11月1日的数据
+cat data/metrics/metrics-2025-11-01.json | jq
+
+# 统计当天缓存命中率
+jq '[.[] | select(.type != "install_session") | .cache_hit] | add / length' data/metrics/metrics-2025-11-01.json
+```
+
+**合并多天数据**：
+```bash
+# 合并11月所有数据
+jq -s 'add' data/metrics/metrics-2025-11-*.json > november.json
+
+# 合并后分析
+jq '[.[] | select(.cache_hit == true)] | length' november.json
+```
+
+**Python 分析**：
+```python
+import json
+from pathlib import Path
+
+# 读取所有11月数据
+metrics_dir = Path("data/metrics")
+all_data = []
+
+for file in sorted(metrics_dir.glob("metrics-2025-11-*.json")):
+    with open(file) as f:
+        all_data.extend(json.load(f))
+
+# 分析
+cache_hits = [m for m in all_data if m.get("cache_hit") == True]
+print(f"缓存命中率: {len(cache_hits) / len(all_data) * 100:.1f}%")
+```
+
+## 数据文件格式
+
+### 单个包记录（Package Record）
 
 包含所有包下载请求的量化数据，每条记录包括：
 

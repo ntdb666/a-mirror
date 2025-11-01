@@ -16,6 +16,7 @@ from mirrorsrun.aria2_api import add_download, get_status
 from mirrorsrun.config import CACHE_DIR, EXTERNAL_URL_ARIA2, METRICS_FILE, ENABLE_SESSION_SUMMARY
 from mirrorsrun.metrics import MetricsRecorder
 from mirrorsrun.session_manager import session_manager
+from mirrorsrun.cache_tracker import get_cache_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,14 @@ async def try_file_based_cache(
     # 场景 1: 缓存命中
     if cache_status == DownloadingStatus.DOWNLOADED:
         logger.info(f"Cache hit for {target_url}")
+        
+        # 更新缓存访问时间
+        try:
+            cache_tracker = get_cache_tracker()
+            cache_tracker.update_access_time(cache_file)
+        except Exception:
+            pass  # 静默失败，不影响主要功能
+        
         response = make_cached_response(target_url)
         
         # 记录缓存命中指标
@@ -227,6 +236,13 @@ async def try_file_based_cache(
             client_receive_speed = file_size / total_time if total_time > 0 else 0
             
             logger.info(f"[METRICS] Aria2 download completed: {package_name}")
+            
+            # 更新缓存访问时间（首次下载完成）
+            try:
+                cache_tracker = get_cache_tracker()
+                cache_tracker.update_access_time(cache_file)
+            except Exception:
+                pass  # 静默失败，不影响主要功能
             
             # 记录下载成功指标
             metrics_recorder.record_metric(

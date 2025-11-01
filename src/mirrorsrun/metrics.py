@@ -12,7 +12,7 @@ class MetricsRecorder:
     """量化数据记录器"""
     
     def __init__(self, metrics_file: str):
-        self.metrics_file = metrics_file
+        self.metrics_file = metrics_file  # 基础文件路径（用于确定目录）
         self._ensure_data_dir()
     
     def _ensure_data_dir(self):
@@ -20,13 +20,27 @@ class MetricsRecorder:
         data_dir = os.path.dirname(self.metrics_file)
         if data_dir:
             Path(data_dir).mkdir(parents=True, exist_ok=True)
+    
+    def _get_metrics_file_for_date(self, date: datetime) -> str:
+        """
+        获取指定日期的 metrics 文件路径
         
-        # 如果文件不存在，创建一个空的 JSON 数组文件
-        if not os.path.exists(self.metrics_file):
+        Args:
+            date: 日期时间对象
+            
+        Returns:
+            格式为 metrics-YYYY-MM-DD.json 的文件路径
+        """
+        date_str = date.strftime("%Y-%m-%d")
+        base_dir = os.path.dirname(self.metrics_file)
+        return os.path.join(base_dir, f"metrics-{date_str}.json")
+    
+    def _ensure_metrics_file(self, metrics_file: str):
+        """确保指定的 metrics 文件存在"""
+        if not os.path.exists(metrics_file):
             try:
-                with open(self.metrics_file, 'w', encoding='utf-8') as f:
+                with open(metrics_file, 'w', encoding='utf-8') as f:
                     json.dump([], f)
-                logger.info(f"Initialized metrics file: {self.metrics_file}")
             except Exception as e:
                 logger.error(f"Failed to initialize metrics file: {e}")
     
@@ -42,6 +56,7 @@ class MetricsRecorder:
         aria2_download_time: Optional[float] = None,
         client_receive_speed: Optional[float] = None,
         status_message: Optional[str] = None,
+        record_time: Optional[datetime] = None,
     ):
         """
         记录量化指标
@@ -57,8 +72,16 @@ class MetricsRecorder:
             aria2_download_time: Aria2 下载耗时（秒）
             client_receive_speed: 客户端接收速度（bytes/s）
             status_message: 状态说明
+            record_time: 记录时间（用于跨天会话，记录到会话开始日期）
         """
-        timestamp = datetime.utcnow().isoformat() + 'Z'
+        # 使用指定的记录时间或当前时间
+        if record_time is None:
+            record_time = datetime.utcnow()
+        
+        timestamp = record_time.isoformat() + 'Z'
+        
+        # 获取该日期对应的文件
+        metrics_file = self._get_metrics_file_for_date(record_time)
         
         # 转换为 MB 和 MB/s 单位
         file_size_mb = file_size / (1024 * 1024)
@@ -85,17 +108,26 @@ class MetricsRecorder:
         if status_message:
             metric_data["status_message"] = status_message
         
-        # 写入 JSON 文件
-        self._append_to_json(metric_data)
+        # 写入对应日期的 JSON 文件
+        self._append_to_json(metric_data, metrics_file)
         
         # 输出格式化日志
         self._log_metric(metric_data)
     
-    def _append_to_json(self, metric_data: dict):
-        """追加数据到 JSON 文件"""
+    def _append_to_json(self, metric_data: dict, metrics_file: str):
+        """
+        追加数据到指定的 JSON 文件
+        
+        Args:
+            metric_data: 要追加的指标数据
+            metrics_file: 目标文件路径
+        """
         try:
+            # 确保文件存在
+            self._ensure_metrics_file(metrics_file)
+            
             # 读取现有数据
-            with open(self.metrics_file, 'r', encoding='utf-8') as f:
+            with open(metrics_file, 'r', encoding='utf-8') as f:
                 try:
                     data = json.load(f)
                     if not isinstance(data, list):
@@ -107,11 +139,11 @@ class MetricsRecorder:
             data.append(metric_data)
             
             # 写回文件
-            with open(self.metrics_file, 'w', encoding='utf-8') as f:
+            with open(metrics_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         
         except Exception as e:
-            logger.error(f"Failed to append metric to JSON file: {e}")
+            logger.error(f"Failed to append metric to JSON file {metrics_file}: {e}")
     
     def _log_metric(self, metric_data: dict):
         """输出格式化的控制台日志"""

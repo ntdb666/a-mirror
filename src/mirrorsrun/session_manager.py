@@ -219,7 +219,7 @@ class SessionManager:
             )
     
     def _record_session_to_json(self, session: InstallSession, metrics_recorder):
-        """记录会话到 JSON"""
+        """记录会话到 JSON（记录到会话开始日期的文件中）"""
         from datetime import timezone
         
         start_dt = datetime.fromtimestamp(session.start_time, tz=timezone.utc)
@@ -251,8 +251,11 @@ class SessionManager:
             "client_ip": session.client_ip
         }
         
-        # 直接追加到 JSON 文件
-        metrics_recorder._append_to_json(session_data)
+        # 获取会话开始日期对应的文件路径
+        metrics_file = metrics_recorder._get_metrics_file_for_date(start_dt)
+        
+        # 追加到会话开始日期的 JSON 文件
+        metrics_recorder._append_to_json(session_data, metrics_file)
     
     async def check_expired_sessions(self, timeout: int = 5, metrics_recorder=None):
         """检查并完成过期的会话"""
